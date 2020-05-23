@@ -1,23 +1,13 @@
 package com.jeremiahbl.cfl;
 
 import java.awt.BorderLayout;
-import java.awt.event.ActionEvent;
+import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.ArrayList;
 
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
-import javax.swing.JTextField;
+import javax.swing.*;
 
 import net.net16.jeremiahlowe.shared.SwingUtility;
 import net.net16.jeremiahlowe.shared.gui.BrowseButton;
@@ -25,29 +15,63 @@ import net.net16.jeremiahlowe.shared.gui.BrowseButton;
 public class CleanFlightGUI extends JFrame {
 	private File cleanflightDirectory;
 	
+	private JPanel mainPanel = new JPanel();
 	private JPanel mainConfigPanel = new JPanel();
+	private FeaturePanel featurePanel = new FeaturePanel();
+	
 	private JTextField cleanflightDirectoryField = new JTextField();
 	private JList<Target> targets = new JList<Target>();
+	private JButton cleanflightOkBtn = new JButton("OK");
+	private BrowseButton cleanflightBrowseButton = new BrowseButton(BrowseButton.DIRECTORY, cleanflightDirectoryField);
+	private JButton selectBtn = new JButton("Select");
 	
 	public static void main(String[] args) {
 		CleanFlightGUI cf = new CleanFlightGUI();
-		cf.setSize(500, 400);
+		cf.setSize(800, 600);
 		cf.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		SwingUtility.centerJFrame(cf);
 		cf.setVisible(true);
 	}
 	
 	public CleanFlightGUI() {
-		mainConfigPanel.setLayout(new BorderLayout());
+		Box vb, hb;
+		vb = Box.createVerticalBox();
+		vb.add(new JLabel("Cleanflight directory"));
+		int f = cleanflightDirectoryField.getFont().getSize();
+		cleanflightDirectoryField.setPreferredSize(new Dimension(f * 10, f));
 		
-		Box vb = Box.createVerticalBox();
-		Box hb = Box.createHorizontalBox();
-		hb.add(new JLabel("Cleanflight directory"));
-		hb.add(Box.createHorizontalStrut(5));
+		hb = Box.createHorizontalBox();
 		hb.add(cleanflightDirectoryField);
-		hb.add(new BrowseButton(BrowseButton.DIRECTORY, cleanflightDirectoryField));
-		JButton okBtn = new JButton("OK");
-		okBtn.addActionListener((ae) -> {
+		hb.add(cleanflightBrowseButton);
+		hb.add(cleanflightOkBtn);
+		vb.add(hb);
+		
+		targets.setEnabled(false);
+		JScrollPane targetVP = new JScrollPane(targets);
+		hb = Box.createVerticalBox();
+		hb.add(new JLabel("Please select a target"));
+		hb.add(selectBtn);
+		
+		mainConfigPanel.setLayout(new BorderLayout());
+		mainConfigPanel.add(vb, BorderLayout.NORTH);
+		mainConfigPanel.add(targetVP, BorderLayout.CENTER);
+		mainConfigPanel.add(hb, BorderLayout.SOUTH);
+		
+		mainPanel.setLayout(new BorderLayout());
+		hb = Box.createHorizontalBox();
+		hb.add(mainConfigPanel);
+		hb.add(Box.createHorizontalStrut(3));
+		hb.add(new JSeparator(JSeparator.VERTICAL));
+		mainPanel.add(hb, BorderLayout.WEST);
+		mainPanel.add(featurePanel, BorderLayout.CENTER);
+		setContentPane(mainPanel);
+		
+		addListeners();
+	}
+	
+	private void addListeners() {
+		ActionListener al = (ae) -> {
+			System.out.println("Cleanflight directory selected");
 			cleanflightDirectory = new File(cleanflightDirectoryField.getText());
 			String msg = null;
 			if(!cleanflightDirectory.isDirectory())
@@ -60,31 +84,28 @@ public class CleanFlightGUI extends JFrame {
 					targets.setListData(dat.toArray(new Target[0]));
 					targets.setEnabled(true);
 				} else {
+					msg = "Target directory invalid";
 					targets.setListData(new Target[0]);
 					targets.setEnabled(false);
 				}
-			} else JOptionPane.showMessageDialog(mainConfigPanel, msg);
+			}
+			if(msg != null)
+				JOptionPane.showMessageDialog(mainPanel, msg);
+		};
+		selectBtn.addActionListener((ae) -> {
+			Target t = targets.getSelectedValue();
+			if(t != null && t.headerOK())
+				featurePanel.setTargetFile(t.HEADER);
 		});
-		hb.add(okBtn);
-		vb.add(hb);
-		mainConfigPanel.add(vb, BorderLayout.NORTH);
-		
-		targets.setEnabled(false);
-		JScrollPane targetVP = new JScrollPane(targets);
-		mainConfigPanel.add(targetVP, BorderLayout.CENTER);
-		
-		hb = Box.createVerticalBox();
-		hb.add(new JLabel("Please select a target"));
-		hb.add(new JButton("Select"));
-		mainConfigPanel.add(hb, BorderLayout.SOUTH);
-		
-		setContentPane(mainConfigPanel);
-		
+		cleanflightOkBtn.addActionListener(al);
+		cleanflightDirectoryField.addActionListener(al);
 	}
 	
 	private static ArrayList<Target> getTargets(File dir) {
-		ArrayList<Target> out = new ArrayList<Target>();
 		File tsrc = new File(dir.getPath() + "/src/main/target/");
+		if(!tsrc.exists() || !tsrc.isDirectory())
+			return null;
+		ArrayList<Target> out = new ArrayList<Target>();
 		for(File targ : tsrc.listFiles()) {
 			if(targ != null && targ.isDirectory()) {
 				Target t = new Target(targ);
